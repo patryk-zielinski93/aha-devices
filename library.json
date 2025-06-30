@@ -1,0 +1,20 @@
+{
+  "name": "aha-devices",
+  "version": "1.0.0",
+  "description": "AHA devices",
+  "keywords": "AHA devices",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patryk-zielinski93/aha-devices.git"
+  },
+  "authors": [
+    {
+      "name": "Patryk Zieliński",
+      "email": "example@example.com",
+      "url": "https://example.com"
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "*"
+}

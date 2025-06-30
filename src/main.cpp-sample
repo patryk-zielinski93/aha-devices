@@ -1,0 +1,24 @@
+#include <Arduino.h>
+#include <Debug.h>
+#include <Button/Button.h>
+
+#ifdef DEBUG
+#include <TaskMonitor.h>
+
+// Global semaphore for thread-safe serial printing
+SemaphoreHandle_t g_serialSemaphore;
+
+// --- Global Handles and Monitors ---
+// TaskHandle_t g_taskHandleButtons = NULL;
+// TaskMonitor monitorButtons("BTNs");
+
+#endif
+
+void setup() {
+// write your initialization code here
+    DPRINTLN(F("Hello, Arduino!"));
+}
+
+void loop() {
+// write your code here
+}
