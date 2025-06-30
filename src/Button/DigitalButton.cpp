@@ -9,9 +9,9 @@ void DigitalButton::loop()
     bool isPressed = digitalRead(_pin) == _pressedState;
     ButtonEvent event = getButtonEvent(isPressed);
 
-    if (event != BUTTON_EVENT_IDLE && event != _lastEvent)
+    // The check for _lastEvent is removed. We trust getButtonEvent.
+    if (event != BUTTON_EVENT_IDLE)
     {
         _callback(event, this);
-        _lastEvent = event;
     }
 }

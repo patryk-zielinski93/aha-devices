@@ -15,7 +15,6 @@ class DigitalButton : public Button {
 private:
     DigitalButtonCallback _callback;
     bool _pressedState; // LOW / HIGH
-    ButtonEvent _lastEvent = BUTTON_EVENT_IDLE;
 
 public:
     DigitalButton(uint16_t id, uint8_t pin, DigitalButtonCallback callback, bool pressedState = HIGH)

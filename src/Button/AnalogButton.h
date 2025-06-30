@@ -10,7 +10,6 @@ class AnalogButton : public Button
 {
 private:
     AnalogButtonCallback _callback;
-    ButtonEvent _lastEvent = BUTTON_EVENT_IDLE;
     uint8_t _voltageWhenPressed;
     uint8_t getVoltage();
 
