@@ -380,7 +380,6 @@ void Cover::_stateTargetingPosition()
         {
             DPRINT(F("[Cover] #_stateTargeting() -> motorUp -> _currentPositionMs: "));
             DPRINTLN(_currentPositionMs);
-            _currentPositionMs += _currentTiltPositionMs;
             _haCover->setState(HACover::CoverState::StateOpening, true);
             _motorUp();
         }
@@ -433,10 +432,8 @@ void Cover::_stateTargetingPosition()
                 _currentPositionMs = _fullCourseTimeMs;
             }
 
-            _targetPositionMs = _currentPositionMs;
-            _motorStop();
+            stop();
             DPRINTLN(F("[Cover] #_stateTargeting() direction down -> _motorStop()"));
-            _state = _tiltEnabled ? StateTargetingTilt : StateIdle;
         }
 
         return;
@@ -447,19 +444,16 @@ void Cover::_stateTargetingPosition()
         uint32_t change = millis() - _lastUpdatedAt;
         _lastUpdatedAt = millis();
 
+        _currentPositionMs -= change;
+
         if (_tiltEnabled && _currentTiltPositionMs > 0)
         {
             _currentTiltPositionMs -= change;
-            return;
+            if (_currentTiltPositionMs < 0)
+            {
+                _currentTiltPositionMs = 0;
+            }
         }
-
-        if (_tiltEnabled && _currentTiltPositionMs < 0)
-        {
-            _currentPositionMs -= abs(_currentTiltPositionMs);
-            _currentTiltPositionMs = 0;
-        }
-
-        _currentPositionMs -= change;
 
         if (_currentPositionMs <= _targetPositionMs)
         {
@@ -475,10 +469,8 @@ void Cover::_stateTargetingPosition()
                 _currentPositionMs = 0;
             }
 
-            _targetPositionMs = _currentPositionMs;
-            _motorStop();
+            stop();
             DPRINTLN(F("[Cover] #_stateTargeting() direction up -> _motorStop()"));
-            _state = _tiltEnabled ? StateTargetingTilt : StateIdle;
         }
     }
 }
@@ -539,9 +531,7 @@ void Cover::_stateTargetingTilt()
                 _currentTiltPositionMs = _fullCourseTiltTimeMs;
             }
 
-            _targetPositionMs = _currentPositionMs;
-            _targetTiltPositionMs = _currentTiltPositionMs;
-            _motorStop();
+            stop();
             DPRINTLN(F("[Cover] #_stateTargetingTilt() directionDown -> _motorStop()"));
         }
 
@@ -552,6 +542,8 @@ void Cover::_stateTargetingTilt()
     {
         uint32_t change = millis() - _lastUpdatedAt;
         _lastUpdatedAt = millis();
+
+        _currentPositionMs -= change;
 
         if (change >= _currentTiltPositionMs)
         {
@@ -564,8 +556,7 @@ void Cover::_stateTargetingTilt()
 
         if (_currentTiltPositionMs <= _targetTiltPositionMs)
         {
-            _targetTiltPositionMs = _currentTiltPositionMs;
-            _motorStop();
+            stop();
             DPRINTLN(F("[Cover] #_stateTargetingTilt() directionUp -> _motorStop()"));
         }
     }
