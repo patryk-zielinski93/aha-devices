@@ -11,7 +11,14 @@ Cover::Cover(
     uint8_t motorDownPin,
     uint8_t motorUpPin,
     long fullCourseTimeMs,
+    // --- EEPROM Configuration ---
+    uint16_t eepromAddrPosition,
+    uint8_t eepromSlotsPosition,
+    // --- Optional Tilt Configuration ---
     long fullCourseTiltTimeMs,
+    uint16_t eepromAddrTilt,
+    uint8_t eepromSlotsTilt,
+    // --- Optional HA Configuration ---
     const char* deviceClass,
     const __FlashStringHelper* icon
 ) : _haCover(haCover),
@@ -19,6 +26,10 @@ Cover::Cover(
     _motorUpPin(motorUpPin),
     _fullCourseTimeMs(fullCourseTimeMs),
     _fullCourseTiltTimeMs(fullCourseTiltTimeMs),
+    _eepromAddrPosition(eepromAddrPosition),
+    _eepromSlotsPosition(eepromSlotsPosition),
+    _eepromAddrTilt(eepromAddrTilt),
+    _eepromSlotsTilt(eepromSlotsTilt),
     _haNameBuffer(nullptr),
     _haIconBuffer(nullptr),
     _nextInstance(nullptr)
@@ -32,7 +43,14 @@ Cover::Cover(
     uint8_t motorDownPin,
     uint8_t motorUpPin,
     long fullCourseTimeMs,
+    // --- EEPROM Configuration ---
+    uint16_t eepromAddrPosition,
+    uint8_t eepromSlotsPosition,
+    // --- Optional Tilt Configuration ---
     long fullCourseTiltTimeMs,
+    uint16_t eepromAddrTilt,
+    uint8_t eepromSlotsTilt,
+    // --- Optional HA Configuration ---
     const char* deviceClass,
     const char* icon
 ) : _haCover(haCover),
@@ -40,6 +58,10 @@ Cover::Cover(
     _motorUpPin(motorUpPin),
     _fullCourseTimeMs(fullCourseTimeMs),
     _fullCourseTiltTimeMs(fullCourseTiltTimeMs),
+    _eepromAddrPosition(eepromAddrPosition),
+    _eepromSlotsPosition(eepromSlotsPosition),
+    _eepromAddrTilt(eepromAddrTilt),
+    _eepromSlotsTilt(eepromSlotsTilt),
     _haNameBuffer(nullptr),
     _haIconBuffer(nullptr),
     _nextInstance(nullptr)
@@ -285,8 +307,14 @@ void Cover::onCommand(HACover::CoverCommand command, HACover* sender)
     }
 }
 
-void Cover::_setup() const
+void Cover::_setup()
 {
+    _currentPositionMs = _targetPositionMs = EepromService::read<long>(_eepromAddrPosition);
+    if (_tiltEnabled)
+    {
+        _currentTiltPositionMs = _targetTiltPositionMs = EepromService::read<long>(_eepromAddrTilt);
+    }
+
     pinMode(_motorUpPin, OUTPUT);
     pinMode(_motorDownPin, OUTPUT);
     digitalWrite(_motorUpPin, LOW);
@@ -604,6 +632,11 @@ void Cover::stop()
     DPRINT(_targetPositionMs);
     DPRINTLN(F(" _motorStop()"));
     _state = Cover::StateIdle;
+    EepromService::write<long>(_eepromAddrPosition, _currentPositionMs);
+    if (_tiltEnabled)
+    {
+        EepromService::write<long>(_eepromAddrTilt, _currentTiltPositionMs);
+    }
 }
 
 void Cover::open()

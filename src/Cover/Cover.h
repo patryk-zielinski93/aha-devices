@@ -5,6 +5,7 @@
 #include <ArduinoHA.h>
 #include "Debug.h"
 #include "Button/Button.h"
+#include "EepromSerivce.h"
 
 /**
  * @class Cover
@@ -34,7 +35,14 @@ public:
         uint8_t motorDownPin,
         uint8_t motorUpPin,
         long fullCourseTimeMs,
-        long fullCourseTiltTimeMs,
+        // --- EEPROM Configuration ---
+        uint16_t eepromAddrPosition,
+        uint8_t eepromSlotsPosition,
+        // --- Optional Tilt Configuration ---
+        long fullCourseTiltTimeMs = 0,
+        uint16_t eepromAddrTilt = 0,
+        uint8_t eepromSlotsTilt = 0,
+        // --- Optional HA Configuration ---
         const char* deviceClass = nullptr,
         const __FlashStringHelper* icon = nullptr
     );
@@ -46,7 +54,14 @@ public:
         uint8_t motorDownPin,
         uint8_t motorUpPin,
         long fullCourseTimeMs,
-        long fullCourseTiltTimeMs,
+        // --- EEPROM Configuration ---
+        uint16_t eepromAddrPosition,
+        uint8_t eepromSlotsPosition,
+        // --- Optional Tilt Configuration ---
+        long fullCourseTiltTimeMs = 0,
+        uint16_t eepromAddrTilt = 0,
+        uint8_t eepromSlotsTilt = 0,
+        // --- Optional HA Configuration ---
         const char* deviceClass = nullptr,
         const char* icon = nullptr
     );
@@ -84,6 +99,11 @@ private:
     unsigned long _lastUpdatedAt = 0;
     unsigned long _safetyDelayEnd = 0;
 
+    uint16_t _eepromAddrPosition;
+    uint16_t _eepromAddrTilt;
+    uint8_t _eepromSlotsPosition;
+    uint8_t _eepromSlotsTilt;
+
     CoverState _state = StateIdle;
     MotorDirection _motorState = DirectionNone;
     bool _tiltEnabled;
@@ -95,7 +115,7 @@ private:
     // --- Private instance methods (prefixed with _) ---
     void _initialize(const __FlashStringHelper* name, const __FlashStringHelper* icon, const char* deviceClass);
     void _initialize(const char* name, const char* icon, const char* deviceClass);
-    void _setup() const;
+    void _setup();
     void _loop();
     void _motorUp();
     void _motorDown();
