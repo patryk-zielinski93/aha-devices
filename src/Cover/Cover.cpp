@@ -155,6 +155,18 @@ void Cover::openAll()
 void Cover::openCover(Cover* cover, ButtonEvent event)
 {
     if (!cover) return;
+
+    if (event == BUTTON_EVENT_TRIPLE_CLICKED)
+    {
+        cover->_isLocked = false;
+        return;
+    }
+
+    if (cover->_isLocked)
+    {
+        return;
+    }
+
     switch (event)
     {
     case BUTTON_EVENT_CLICKED:
@@ -189,6 +201,18 @@ void Cover::openCover(Cover* cover, ButtonEvent event)
 void Cover::closeCover(Cover* cover, ButtonEvent event)
 {
     if (!cover) return;
+
+    if (event == BUTTON_EVENT_TRIPLE_CLICKED)
+    {
+        cover->_isLocked = true;
+        return;
+    }
+
+    if (cover->_isLocked)
+    {
+        return;
+    }
+
     switch (event)
     {
     case BUTTON_EVENT_CLICKED:

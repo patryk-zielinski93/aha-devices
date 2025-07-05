@@ -107,6 +107,7 @@ private:
     CoverState _state = StateIdle;
     MotorDirection _motorState = DirectionNone;
     bool _tiltEnabled;
+    bool _isLocked = false;
 
     // Buffers for heap-allocated name/icon strings
     char* _haNameBuffer;
