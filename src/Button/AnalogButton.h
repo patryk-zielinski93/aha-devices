@@ -10,14 +10,16 @@ class AnalogButton : public Button
 {
 private:
     AnalogButtonCallback _callback;
-    uint8_t _voltageWhenPressed;
+    uint32_t _samplesCount;
+    uint32_t _samplesSum;
     uint8_t getVoltage();
 
 public:
     AnalogButton(uint16_t id, uint8_t pin, AnalogButtonCallback callback)
         : Button(id, pin),
           _callback(callback),
-          _voltageWhenPressed(0)
+          _samplesCount(0),
+          _samplesSum(0)
     {
     }
 

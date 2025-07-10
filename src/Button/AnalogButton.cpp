@@ -27,7 +27,8 @@ void AnalogButton::loop()
     // If it's not pressed, we DON'T update it, so it holds the last valid press voltage.
     if (isPressed)
     {
-        _voltageWhenPressed = currentVoltage;
+        _samplesCount += 1;
+        _samplesSum += currentVoltage;
     }
 
     // Step 4: Call the callback with the correct voltage
@@ -37,6 +38,8 @@ void AnalogButton::loop()
         // - For PRESSED/LONG_PRESSED, it was just updated with the current voltage.
         // - For RELEASED/CLICKED, it holds the value from just before the physical release.
         // This solves the problem entirely.
-        _callback(event, _voltageWhenPressed, this);
+        _callback(event, _samplesSum / _samplesCount, this);
+        _samplesCount = 0;
+        _samplesSum = 0;
     }
 }
