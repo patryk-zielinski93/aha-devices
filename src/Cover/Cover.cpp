@@ -136,6 +136,14 @@ void Cover::loop()
     }
 }
 
+void Cover::publishAllStates()
+{
+    for (Cover* current = _head; current != nullptr; current = current->_nextInstance)
+    {
+        current->_updateHAState();
+    }
+}
+
 void Cover::closeAll()
 {
     for (Cover* current = _head; current != nullptr; current = current->_nextInstance)

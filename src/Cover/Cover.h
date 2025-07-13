@@ -19,6 +19,7 @@ public:
     // --- Static methods to control all created instances ---
     static void setup();
     static void loop();
+    static void publishAllStates();
     static void closeAll();
     static void openAll();
     static void openCover(Cover* cover, ButtonEvent event);
