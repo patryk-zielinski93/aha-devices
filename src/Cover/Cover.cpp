@@ -355,7 +355,7 @@ void Cover::_setup()
     _haCover->onCommand(onCommand);
     _haCover->onSetPositionCommand(onPositionCommand);
     _haCover->onTiltCommand(onTiltCommand);
-    _haCover->setRetain(true);
+    _haCover->setRetain(false);
     _haCover->setOptimistic(true);
 
     _updateHAState();
