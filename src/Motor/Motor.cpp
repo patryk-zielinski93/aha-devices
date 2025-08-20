@@ -45,7 +45,7 @@ void Motor::setup() {
     _haCover->setCurrentState(HACover::CoverState::StateStopped);
 
     _haCover->setOptimistic(true);
-    _haCover->setRetain(true);
+    _haCover->setRetain(false);
 }
 
 void Motor::loop() {
