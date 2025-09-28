@@ -4,25 +4,37 @@
 
 #include "MotionSensor.h"
 
-void MotionSensor::_handleMotionDetected() {
-    DPRINTLN("[MotionSensor] #" + String(_id) + " motion detected");
-    if (_motionCallback != nullptr) {
+void MotionSensor::_handleMotionDetected()
+{
+    DPRINT(F("[MotionSensor] #"));
+    DPRINT(_id);
+    DPRINTLN(F(" motion detected"));
+    if (_motionCallback != nullptr)
+    {
         _motionCallback(this);
     }
 }
 
-void MotionSensor::setup() const {
+void MotionSensor::setup() const
+{
     pinMode(_sensorPin, INPUT);
-    DPRINTLN("[MotionSensor] #" + String(_id) + " initialized");
+    DPRINT(F("[MotionSensor] #"));
+    DPRINT(_id);
+    DPRINTLN(F(" initialized"));
 }
 
-void MotionSensor::loop() {
-    if (digitalRead(_sensorPin) == HIGH) {
-        if (!_motionDetected) {
+void MotionSensor::loop()
+{
+    if (digitalRead(_sensorPin) == HIGH)
+    {
+        if (!_motionDetected)
+        {
             _motionDetected = true;
             _handleMotionDetected();
         }
-    } else {
+    }
+    else
+    {
         _motionDetected = false;
     }
 }

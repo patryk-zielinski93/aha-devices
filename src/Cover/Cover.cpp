@@ -424,7 +424,6 @@ void Cover::_stateTargetingPosition()
 {
     if (_isSafetyDelayActive())
     {
-        // DPRINTLN("[Cover] #_stateTargeting() -> Safety delay active");
         return;
     }
 
