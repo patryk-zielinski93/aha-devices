@@ -8,18 +8,19 @@
 
 enum HeatingCircuitCurrentState : uint8_t
 {
-    STATE_POWERED_OFF,
-    STATE_TARGETING_TEMPERATURE,
-    STATE_MODE_OFF
+    STATE_MODE_OFF,
+    STATE_MODE_HEAT
 };
 
 class HeatingZone
 {
 public:
-    inline static uint16_t features = HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature;
+    inline static unsigned long valveStateChangeDuration = 120000; // 2 mins
+    inline static uint16_t features = HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature;
 
     static bool isHeatNeededOnTheFloor(uint8_t floor);
     static void setup();
+    static void updateHAStates();
 
     HeatingZone(
         HAHVAC* haHVAC,
@@ -53,7 +54,7 @@ public:
             {
                 _valvePins[i] = valvePins[i];
                 pinMode(_valvePins[i], OUTPUT);
-                digitalWrite(_valvePins[i], LOW);
+                digitalWrite(_valvePins[i], HIGH);
             }
         }
 
@@ -72,19 +73,23 @@ private:
     HAHVAC* _haHVAC;
     uint8_t* _valvePins;
     uint8_t _valveCount;
+    uint8_t _valveState;
     uint8_t _floor;
     uint8_t _zoneNumber;
     uint16_t _eepromAddrState;
     uint16_t _eepromAddrTargetTemperature;
+    HAHVAC::Action _currentAction = HAHVAC::UnknownAction;
+    unsigned long _valveStateChange = 0;
 
     float _currentTemperature = 0;
     float _targetTemperature = 23;
-    bool _poweredOn = false;
     HAHVAC::Mode _mode = HAHVAC::HeatMode;
 
-    void _update() const;
+    void _update();
     void _setup();
-    void _setAllValves(uint8_t state) const;
+    void _setAllValves(uint8_t state);
+    void _setAction(HAHVAC::Action action);
+    void _setMode(HAHVAC::Mode mode);
 
     // --- Linked List for Instance Management ---
     HeatingZone* _nextInstance;
@@ -93,7 +98,6 @@ private:
     // --- Private static callback handling (no prefix) ---
     static HeatingZone* findInstance(HAHVAC* haHVAC);
     static void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender);
-    static void onPowerCommand(bool state, HAHVAC* sender);
     static void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender);
 };
 

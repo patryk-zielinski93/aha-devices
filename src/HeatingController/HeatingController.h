@@ -47,6 +47,7 @@ public:
 
     float getHighestTargetTemperature();
     bool isHeatNeeded();
+    [[nodiscard]] bool isPumpActive() const;
     void setup();
     void loop();
 

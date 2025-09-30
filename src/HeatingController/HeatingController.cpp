@@ -32,6 +32,19 @@ bool HeatingController::isHeatNeeded()
     return false;
 }
 
+bool HeatingController::isPumpActive() const
+{
+    for (uint8_t i = 0; i < _pumpsCount; i++)
+    {
+        if (digitalRead(_pumps[i].pumpPin) == HIGH)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void HeatingController::setup()
 {
     for (uint8_t i = 0; i < _pumpsCount; ++i)
@@ -73,6 +86,10 @@ void HeatingController::_updatePumps()
         bool isNeeded = HeatingZone::isHeatNeededOnTheFloor(floor);
 
         digitalWrite(_pumps[i].pumpPin, isNeeded ? HIGH : LOW);
+        DPRINT(F("[HeatingController] Pump on floor: "));
+        DPRINT(_pumps[i].floor);
+        DPRINT(F(" state changed: "));
+        DPRINTLN(isNeeded);
     }
 }
 
