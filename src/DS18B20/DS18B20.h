@@ -48,11 +48,6 @@ public:
      */
     float getTemperature(uint8_t index) const;
 
-    /**
-     * @brief Returns the total number of sensors managed by this instance.
-     */
-    uint8_t getSensorCount() const { return _sensorCount; }
-
 private:
     // Finite state machine
     enum class State : uint8_t
@@ -65,7 +60,7 @@ private:
 
     // Constants
     static const uint16_t CONVERSION_TIME_MS = 750; // DS18B20 conversion at 12-bit
-    static const uint32_t MEASUREMENT_INTERVAL_MS = 60000; // 1 minute interval
+    static const uint32_t MEASUREMENT_INTERVAL_MS = 30000; // 30 seconds interval
 
     OneWire _oneWire; // OneWire bus object
     DallasTemperature _dallas; // DallasTemperature object

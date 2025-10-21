@@ -46,10 +46,10 @@ void DS18B20::begin()
         }
         if (valid)
         {
-            _dallas.setResolution((uint8_t*)_deviceAddrs[i], 12, false);
+            _dallas.setResolution((uint8_t*)_deviceAddrs[i], 11, false);
         }
     }
-    _dallas.setResolution(12);
+    _dallas.setResolution(11);
 
     _beginCalled = true;
     _state = State::Idle;
@@ -80,7 +80,6 @@ void DS18B20::loop()
 
     case State::Requesting:
         // Immediately after request, we go to WAITING
-        DPRINTLN(F("[DS18B20] Temperature read requested. Waiting..."));
         _state = State::Waiting;
         break;
 
@@ -99,7 +98,6 @@ void DS18B20::loop()
         _lastMeasurementTime = now;
         // Move back to Idle
         _state = State::Idle;
-        DPRINTLN(F("[DS18B20] Temperature read."));
         break;
     }
 }
@@ -123,8 +121,6 @@ void DS18B20::_readAll()
     for (uint8_t i = 0; i < _sensorCount; i++)
     {
         float tempC = _dallas.getTempC((uint8_t*)_deviceAddrs[i]);
-        DPRINT(F("[DS18B20] Temperature from sensor: "));
-        DPRINTLN(tempC);
         if (tempC == DEVICE_DISCONNECTED_C)
         {
             _lastTemperatures[i] = -127.0f;
