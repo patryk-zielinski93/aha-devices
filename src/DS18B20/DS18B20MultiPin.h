@@ -44,7 +44,7 @@ private:
 
     // Constants
     static const uint16_t CONVERSION_TIME_MS = 750; // DS18B20 12-bit
-    static const uint32_t MEASUREMENT_INTERVAL_MS = 5000; // 30 sekund
+    static const uint32_t MEASUREMENT_INTERVAL_MS = 30000; // 30 sekund
 
     const uint8_t* _pins;
     uint8_t _sensorsCount;

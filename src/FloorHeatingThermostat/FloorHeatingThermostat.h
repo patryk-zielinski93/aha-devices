@@ -9,62 +9,44 @@
 #include <ArduinoHA.h>
 #include "Debug.h"
 #include "EepromSerivce.h"
+#include "FloorHeatingZone/HeatingZone.h"
 #include "device-types/HAHVAC.h"
 
 class FloorHeatingThermostat
+
 {
 public:
-    inline static uint16_t features = HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature | HAHVAC::ActionFeature;
-    inline static float MAX_TEMPERATURE = 25.0f;
-    inline static float MIN_TEMPERATURE = 18.0f;
-    inline static float TEMPERATURE_STEP = 0.5f;
-    inline static float DEFAULT_TEMPERATURE = 21.5f;
-    static void setup();
+    static constexpr uint16_t features = HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature |
+        HAHVAC::ActionFeature;
+    static constexpr float MAX_TEMPERATURE = 25.0f;
+    static constexpr float MIN_TEMPERATURE = 18.0f;
+    static constexpr float TEMPERATURE_STEP = 0.5f;
+    static constexpr float DEFAULT_TEMPERATURE = 21.5f;
 
-    FloorHeatingThermostat(
-        HAHVAC* haHVACp,
-        // --- EEPROM Configuration ---
-        uint16_t eepromAddrState,
-        uint16_t eepromAddrTargetTemperature,
-        // --- Optional HA Configuration ---
-        float minTemperature = MIN_TEMPERATURE,
-        float maxTemperature = MAX_TEMPERATURE,
-        float temperatureStep = TEMPERATURE_STEP,
-        const char* name = nullptr,
-        const char* icon = nullptr
-    ) : haHVAC(haHVACp),
-        _eepromAddrState(eepromAddrState),
-        _eepromAddrTargetTemperature(eepromAddrTargetTemperature)
-    {
-        haHVAC->setName(name == nullptr ? haHVAC->uniqueId() : name);
-        if (icon) haHVAC->setIcon(icon);
-        haHVAC->setModes(HAHVAC::AutoMode | HAHVAC::OffMode);
-        haHVAC->setMinTemp(minTemperature);
-        haHVAC->setMaxTemp(maxTemperature);
-        haHVAC->setTempStep(temperatureStep);
-        haHVAC->setAction(HAHVAC::Action::IdleAction);
-        haHVAC->setCurrentCurrentTemperature(0);
+    /**
+     * @brief Inicjalizuje wszystkie termostaty. Wywołać w setup().
+     * @param zones Wskaźnik do globalnej tablicy stref.
+     * @param zoneCount Liczba stref.
+     */
+    static void setup(HeatingZone* zones, uint8_t zoneCount);
 
-        _nextInstance = _head;
-        _head = this;
-    }
-
-    HAHVAC* haHVAC;
-
-    bool isHeatNeeded();
+    /**
+     * @brief Sprawdza, czy strefa potrzebuje grzania (z uwzględnieniem histerezy).
+     */
+    static bool isHeatNeeded(const HeatingZone& zone);
 
 private:
-    uint16_t _eepromAddrState;
-    uint16_t _eepromAddrTargetTemperature;
+    /**
+     * @brief Wewnętrzna metoda setup dla pojedynczej strefy.
+     */
+    static void _setup(HeatingZone& zone);
 
-    void _setup();
+    // --- Wskaźniki do globalnej tablicy stref (dla callbacków) ---
+    static HeatingZone* _zones;
+    static uint8_t _zoneCount;
 
-    // --- Linked List for Instance Management ---
-    FloorHeatingThermostat* _nextInstance;
-    static FloorHeatingThermostat* _head;
-
-    // --- Private static callback handling (no prefix) ---
-    static FloorHeatingThermostat* findInstance(HAHVAC* haHVAC);
+    // --- Statyczne callbacki ---
+    static HeatingZone* findInstance(HAHVAC* haHVAC);
     static void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender);
     static void onModeCommand(HAHVAC::Mode mode, HAHVAC* sender);
 };

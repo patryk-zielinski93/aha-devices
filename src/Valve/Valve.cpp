@@ -4,54 +4,77 @@
 
 #include "Valve.h"
 
-Valve* Valve::_head = nullptr;
-
-void Valve::loop()
+void Valve::setup(HeatingZone* zones, uint8_t zoneCount)
 {
-    for (Valve* current = _head; current != nullptr; current = current->_nextInstance)
+    for (uint8_t i = 0; i < zoneCount; i++)
     {
-        current->_loop();
+        HeatingZone& zone = zones[i];
+        pinMode(zone.valvePin, OUTPUT);
+
+        // Ustaw stan początkowy (NO - Normalnie Otwarty)
+        // Otwarty = LOW (brak zasilania), Zamknięty = HIGH (zasilanie)
+        if (zone.valveCurrentState == VALVE_STATE_CLOSED || zone.valveCurrentState == VALVE_STATE_CLOSING)
+        {
+            digitalWrite(zone.valvePin, HIGH);
+        }
+        else
+        {
+            digitalWrite(zone.valvePin, LOW);
+        }
     }
 }
 
-void Valve::open()
+void Valve::loop(HeatingZone* zones, uint8_t zoneCount)
+{
+    for (uint8_t i = 0; i < zoneCount; i++)
+    {
+        _loop(zones[i]);
+    }
+}
+
+void Valve::open(HeatingZone& zone)
 {
     // Jeśli już otwarty, nic nie rób
-    if (_currentState == ValveState::VALVE_STATE_OPEN || _currentState == ValveState::VALVE_STATE_OPENING)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_OPEN || zone.valveCurrentState ==
+        ValveState::VALVE_STATE_OPENING)
     {
         return;
     }
 
     unsigned long now = millis();
 
-    if (_currentState == ValveState::VALVE_STATE_CLOSED)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_CLOSED)
     {
         // Start otwierania od stanu zamkniętego: pełny czas
-        _currentState = ValveState::VALVE_STATE_OPENING;
-        _stateChangeFinishedAt = now + _stateChangeDurationMs;
+        zone.valveCurrentState = ValveState::VALVE_STATE_OPENING;
+        zone.valveStateChangeFinishedAt = now + STATE_CHANGE_DURATION_MS;
 
         // Odłącz zasilanie (NO -> brak zasilania to otwieranie/otwarty)
-        digitalWrite(_valvePin, LOW);
+        digitalWrite(zone.valvePin, LOW);
 
-        DPRINT(F("[Valve] OPEN start: full duration ms="));
-        DPRINTLN(_stateChangeDurationMs);
+        DPRINT(F("[Valve ("));
+        DPRINT(zone.valvePin);
+        DPRINT(F(")] OPEN start: full duration ms="));
+        DPRINTLN(STATE_CHANGE_DURATION_MS);
 
         return;
     }
 
-    if (_currentState == ValveState::VALVE_STATE_CLOSING)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_CLOSING)
     {
         // Odwrócenie: nowy czas do otwarcia = czas, który upłynął w zamykaniu
-        unsigned long remaining = (_stateChangeFinishedAt > now) ? (_stateChangeFinishedAt - now) : 0;
-        unsigned long elapsed = _stateChangeDurationMs > remaining ? (_stateChangeDurationMs - remaining) : 0;
+        unsigned long remaining = (zone.valveStateChangeFinishedAt > now) ? (zone.valveStateChangeFinishedAt - now) : 0;
+        unsigned long elapsed = STATE_CHANGE_DURATION_MS > remaining ? (STATE_CHANGE_DURATION_MS - remaining) : 0;
 
-        _currentState = ValveState::VALVE_STATE_OPENING;
-        _stateChangeFinishedAt = now + elapsed;
+        zone.valveCurrentState = ValveState::VALVE_STATE_OPENING;
+        zone.valveStateChangeFinishedAt = now + elapsed;
 
         // Odwracamy kierunek -> brak zasilania
-        digitalWrite(_valvePin, LOW);
+        digitalWrite(zone.valvePin, LOW);
 
-        DPRINT(F("[Valve] OPEN reversed: elapsed ms="));
+        DPRINT(F("[Valve ("));
+        DPRINT(zone.valvePin);
+        DPRINT(F(")] OPEN reversed: elapsed ms="));
         DPRINT(elapsed);
         DPRINT(F(" remaining was="));
         DPRINTLN(remaining);
@@ -60,45 +83,48 @@ void Valve::open()
     }
 }
 
-void Valve::close()
+void Valve::close(HeatingZone& zone)
 {
     // Jeśli już zamknięty, nic nie rób
-    if (_currentState == ValveState::VALVE_STATE_CLOSED || _currentState == ValveState::VALVE_STATE_CLOSING)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_CLOSED || zone.valveCurrentState ==
+        ValveState::VALVE_STATE_CLOSING)
     {
         return;
     }
 
     unsigned long now = millis();
 
-    if (_currentState == ValveState::VALVE_STATE_OPEN)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_OPEN)
     {
         // Start zamykania od stanu otwartego: pełny czas
-        _currentState = ValveState::VALVE_STATE_CLOSING;
-        _stateChangeFinishedAt = now + _stateChangeDurationMs;
+        zone.valveCurrentState = ValveState::VALVE_STATE_CLOSING;
+        zone.valveStateChangeFinishedAt = now + STATE_CHANGE_DURATION_MS;
 
         // Podaj zasilanie (NO -> zasilanie zamyka)
-        digitalWrite(_valvePin, HIGH);
+        digitalWrite(zone.valvePin, HIGH);
 
         DPRINT(F("[Valve ("));
-        DPRINT(_valvePin);
+        DPRINT(zone.valvePin);
         DPRINTLN(F(")] CLOSE start"));
 
         return;
     }
 
-    if (_currentState == ValveState::VALVE_STATE_OPENING)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_OPENING)
     {
         // Odwrócenie: nowy czas do zamknięcia = czas, który upłynął w otwieraniu
-        unsigned long remaining = (_stateChangeFinishedAt > now) ? (_stateChangeFinishedAt - now) : 0;
-        unsigned long elapsed = _stateChangeDurationMs > remaining ? (_stateChangeDurationMs - remaining) : 0;
+        unsigned long remaining = (zone.valveStateChangeFinishedAt > now) ? (zone.valveStateChangeFinishedAt - now) : 0;
+        unsigned long elapsed = STATE_CHANGE_DURATION_MS > remaining ? (STATE_CHANGE_DURATION_MS - remaining) : 0;
 
-        _currentState = ValveState::VALVE_STATE_CLOSING;
-        _stateChangeFinishedAt = now + elapsed;
+        zone.valveCurrentState = ValveState::VALVE_STATE_CLOSING;
+        zone.valveStateChangeFinishedAt = now + elapsed;
 
         // Podaj zasilanie
-        digitalWrite(_valvePin, HIGH);
+        digitalWrite(zone.valvePin, HIGH);
 
-        DPRINT(F("[Valve] CLOSE reversed: elapsed ms="));
+        DPRINT(F("[Valve ("));
+        DPRINT(zone.valvePin);
+        DPRINT(F(")] CLOSE reversed: elapsed ms="));
         DPRINT(elapsed);
         DPRINT(F(" remaining was="));
         DPRINTLN(remaining);
@@ -107,41 +133,42 @@ void Valve::close()
     }
 }
 
-ValveState Valve::getState()
+ValveState Valve::getState(const HeatingZone& zone)
 {
-    return _currentState;
+    return zone.valveCurrentState;
 }
 
-void Valve::_loop()
+void Valve::_loop(HeatingZone& zone)
 {
     unsigned long now = millis();
 
-    if (_currentState == ValveState::VALVE_STATE_OPENING || _currentState == ValveState::VALVE_STATE_CLOSING)
+    if (zone.valveCurrentState == ValveState::VALVE_STATE_OPENING || zone.valveCurrentState ==
+        ValveState::VALVE_STATE_CLOSING)
     {
         // Sprawdź, czy zakończył się ruch
-        if (now >= _stateChangeFinishedAt)
+        if (now >= zone.valveStateChangeFinishedAt)
         {
-            if (_currentState == ValveState::VALVE_STATE_OPENING)
+            if (zone.valveCurrentState == ValveState::VALVE_STATE_OPENING)
             {
-                _currentState = ValveState::VALVE_STATE_OPEN;
+                zone.valveCurrentState = ValveState::VALVE_STATE_OPEN;
+                digitalWrite(zone.valvePin, LOW); // Upewnij się, że zasilanie jest wyłączone
 
-                // Dla OPEN pin ma być LOW (brak zasilania)
-                digitalWrite(_valvePin, LOW);
-
-                DPRINTLN(F("[Valve] OPEN completed"));
+                DPRINT(F("[Valve ("));
+                DPRINT(zone.valvePin);
+                DPRINTLN(F(")] OPEN completed"));
             }
             else
             {
-                _currentState = ValveState::VALVE_STATE_CLOSED;
+                zone.valveCurrentState = ValveState::VALVE_STATE_CLOSED;
+                digitalWrite(zone.valvePin, HIGH); // Upewnij się, że zasilanie jest włączone
 
-                // Dla CLOSED pin ma być HIGH (ciągłe zasilanie)
-                digitalWrite(_valvePin, HIGH);
-
-                DPRINTLN(F("[Valve] CLOSE completed"));
+                DPRINT(F("[Valve ("));
+                DPRINT(zone.valvePin);
+                DPRINTLN(F(")] CLOSE completed"));
             }
 
-            // Ustabilizowane: koniec ruchu – nie używamy timera
-            _stateChangeFinishedAt = 0;
+            // Ustabilizowane: koniec ruchu
+            zone.valveStateChangeFinishedAt = 0;
         }
     }
 }
