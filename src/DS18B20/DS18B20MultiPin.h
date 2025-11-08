@@ -44,24 +44,29 @@ private:
 
     // Constants
     static const uint16_t CONVERSION_TIME_MS = 750; // DS18B20 12-bit
-    static const uint32_t MEASUREMENT_INTERVAL_MS = 30000; // 30 sekund
+    static const uint32_t MEASUREMENT_INTERVAL_MS = 5000; // 5 sekund
+    static const uint8_t MAX_READINGS = 50; // Maksymalna liczba pomiarów do uśrednienia
 
     const uint8_t* _pins;
     uint8_t _sensorsCount;
 
     OneWire** _oneWires; // Tablica wskaźników do OneWire (1 na pin)
     DallasTemperature* _dallas; // Wskaźnik do JEDNEGO obiektu Dallas (oszczędność RAM)
-    float* _lastTemperatures; // Ostatnie odczytane temperatury
-    DeviceAddress* _addresses; // ***NOWOŚĆ: Tablica na adresy czujników***
+    float* _lastTemperatures; // Ostatnia obliczona średnia temperatura (zwracana przez getTemperature)
+    float* _tempSum; // Suma temperatur z bieżących pomiarów (do obliczenia średniej)
+    uint8_t* _readsCount; // Liczba udanych odczytów per sensor w bieżącym cyklu
+    DeviceAddress* _addresses;
 
     State _state;
     bool _beginCalled;
 
     uint32_t _lastRequestTime;
     uint32_t _lastMeasurementTime;
+    uint8_t _totalReadAttempts; // Globalna liczba prób odczytu (0-10)
 
     void _requestAll();
     void _readAll();
+    void _searchForMissingSensors();
 
     // Funkcja pomocnicza do sprawdzania, czy adres jest poprawny (nie same zera)
     bool _isValidAddress(const DeviceAddress& address);
