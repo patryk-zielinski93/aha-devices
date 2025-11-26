@@ -8,36 +8,32 @@ DS18B20MultiPin::DS18B20MultiPin(const uint8_t* pins, uint8_t sensorsCount)
       , _dallas(nullptr)
       , _lastTemperatures(nullptr)
       , _tempSum(nullptr)
-      , _readsCount(nullptr)
+      , _consecutiveErrors(nullptr)
       , _addresses(nullptr)
       , _state(State::Idle)
       , _beginCalled(false)
       , _lastRequestTime(0)
       , _lastMeasurementTime(0)
-      , _totalReadAttempts(0)
 {
-    // Alokacja tablicy na obiekty OneWire
+    // Alokacja pamięci
     _oneWires = new OneWire*[_sensorsCount];
-    // Alokacja tablicy na ostatnie obliczone średnie (zwracane przez getTemperature)
     _lastTemperatures = new float[_sensorsCount];
-    // Alokacja tablicy na sumy temperatur (bieżący cykl 50 pomiarów)
     _tempSum = new float[_sensorsCount];
-    // Alokacja tablicy na liczniki udanych odczytów
-    _readsCount = new uint8_t[_sensorsCount];
-    // Alokacja tablicy na adresy (8 bajtów na czujnik)
+    _consecutiveErrors = new uint8_t[_sensorsCount]; // Nowa tablica błędów
     _addresses = new DeviceAddress[_sensorsCount];
 
     for (uint8_t i = 0; i < _sensorsCount; i++)
     {
         _oneWires[i] = new OneWire(_pins[i]);
-        _lastTemperatures[i] = -127.0f; // Domyślny "disconnected"
-        _tempSum[i] = 0.0f; // Suma = 0 na starcie
-        _readsCount[i] = 0; // Brak odczytów na starcie
+        _lastTemperatures[i] = -127.0f; // Wartość błędu
+        _tempSum[i] = -100.0f; // Flaga: brak inicjalizacji średniej
+        _consecutiveErrors[i] = 0; // Start z czystym licznikiem błędów
+
         // Zeruj adresy na starcie
         for (uint8_t j = 0; j < 8; j++) _addresses[i][j] = 0;
     }
 
-    // Alokuj JEDEN obiekt DallasTemperature
+    // Jeden obiekt DallasTemperature obsługuje wszystkie magistrale po kolei
     if (_sensorsCount > 0)
     {
         _dallas = new DallasTemperature(_oneWires[0]);
@@ -46,7 +42,6 @@ DS18B20MultiPin::DS18B20MultiPin(const uint8_t* pins, uint8_t sensorsCount)
 
 DS18B20MultiPin::~DS18B20MultiPin()
 {
-    // Czyszczenie pamięci
     if (_oneWires)
     {
         for (uint8_t i = 0; i < _sensorsCount; i++)
@@ -57,7 +52,7 @@ DS18B20MultiPin::~DS18B20MultiPin()
     }
     delete[] _lastTemperatures;
     delete[] _tempSum;
-    delete[] _readsCount;
+    delete[] _consecutiveErrors;
     delete[] _addresses;
     delete _dallas;
 }
@@ -69,37 +64,32 @@ void DS18B20MultiPin::begin()
         return;
     }
 
-    // Ustaw tryb nieblokujący RAZ
     _dallas->setWaitForConversion(false);
 
-    // ***ZMIANA: Pętla inicjalizująca KAŻDY pin OSOBNO***
     for (uint8_t i = 0; i < _sensorsCount; i++)
     {
         // 1. Przełącz magistralę
         _dallas->setOneWire(_oneWires[i]);
 
-        // 2. Wywołaj begin() (skanuje TĘ magistralę)
+        // 2. Skanuj magistralę
         _dallas->begin();
 
-        // 3. Pobierz adres JEDYNEGO czujnika (indeks 0) na tej magistrali
+        // 3. Pobierz adres pierwszego urządzenia
         if (_dallas->getAddress(_addresses[i], 0))
         {
             DPRINTLN(F("[DS18B20MultiPin] Sensor found. Setting 12-bit resolution..."));
-
-            // 4. Ustaw rozdzielczość używając ADRESU (zapis do EEPROM czujnika)
             _dallas->setResolution(_addresses[i], 12);
         }
         else
         {
-            DPRINTLN(F("[DS18B20MultiPin] ERROR! Sensor NOT found!"));
-            // Adres pozostanie wyzerowany
+            DPRINTLN(F("[DS18B20MultiPin] WARNING: Sensor NOT found on startup!"));
         }
     }
 
     _beginCalled = true;
     _state = State::Idle;
     _lastMeasurementTime = 0;
-    DPRINTLN(F("[DS18B20MultiPin] All sensors initialized."));
+    DPRINTLN(F("[DS18B20MultiPin] Manager initialized."));
 }
 
 void DS18B20MultiPin::loop()
@@ -116,7 +106,7 @@ void DS18B20MultiPin::loop()
     case State::Idle:
         if ((now - _lastMeasurementTime) >= MEASUREMENT_INTERVAL_MS || _lastMeasurementTime == 0)
         {
-            _searchForMissingSensors();
+            _searchForMissingSensors(); // Próba znalezienia podłączonych w locie
             _requestAll();
             _lastRequestTime = now;
             _state = State::Requesting;
@@ -146,19 +136,14 @@ float DS18B20MultiPin::getTemperature(uint8_t pinIndex) const
 {
     if (pinIndex >= _sensorsCount)
     {
-        return -127.0f; // invalid index
+        return -127.0f;
     }
-
-    // Zwróć ostatnią obliczoną średnią (aktualizowaną co 50 pomiarów)
     return _lastTemperatures[pinIndex];
 }
 
-/**
- * @brief Sprawdza, czy adres nie jest pusty (np. 0x00...)
- */
 bool DS18B20MultiPin::_isValidAddress(const DeviceAddress& address)
 {
-    // Adres DS18B20 zawsze zaczyna się od 0x28
+    // 0x28 to rodzina DS18B20. Jeśli pierwszy bajt to 0, adres jest pusty.
     return address[0] == 0x28;
 }
 
@@ -166,27 +151,22 @@ void DS18B20MultiPin::_searchForMissingSensors()
 {
     for (uint8_t i = 0; i < _sensorsCount; i++)
     {
-        // Szukaj tylko tam, gdzie czujnik nie został jeszcze odnaleziony
+        // Szukamy tylko tam, gdzie adres jest nieprawidłowy (brak czujnika)
         if (!_isValidAddress(_addresses[i]))
         {
-            DPRINT(F("[DS18B20MultiPin] Searching on pin "));
-            DPRINT(i);
-            DPRINTLN(F("..."));
-
-            // Przełącz magistralę
+            // Przełącz magistralę i szukaj
             _dallas->setOneWire(_oneWires[i]);
-
-            // Wywołaj begin() ponownie
             _dallas->begin();
 
-            // Spróbuj pobrać adres
             if (_dallas->getAddress(_addresses[i], 0))
             {
-                DPRINT(F("[DS18B20MultiPin] Sensor FOUND on pin "));
+                DPRINT(F("[DS18B20MultiPin] HOT-SWAP: Sensor FOUND on pin "));
                 DPRINTLN(i);
-
-                // Ustaw rozdzielczość
                 _dallas->setResolution(_addresses[i], 12);
+
+                // Reset filtrów dla nowego czujnika
+                _tempSum[i] = -100.0f;
+                _consecutiveErrors[i] = 0;
             }
         }
     }
@@ -194,14 +174,13 @@ void DS18B20MultiPin::_searchForMissingSensors()
 
 void DS18B20MultiPin::_requestAll()
 {
-    DPRINTLN(F("[DS18B20MultiPin] Requesting temperature conversion..."));
+    DPRINTLN(F("[DS18B20MultiPin] Requesting conversion..."));
     for (uint8_t i = 0; i < _sensorsCount; i++)
     {
-        // Kontynuuj tylko jeśli mamy poprawny adres dla tego pinu
         if (_isValidAddress(_addresses[i]))
         {
             _dallas->setOneWire(_oneWires[i]);
-            // ***ZMIANA: Żądaj konwersji używając ADRESU***
+            // Adresowanie konkretnego czujnika jest szybsze niż skip()
             _dallas->requestTemperaturesByAddress(_addresses[i]);
         }
     }
@@ -211,88 +190,80 @@ void DS18B20MultiPin::_readAll()
 {
     DPRINTLN(F("[DS18B20MultiPin] Reading temperatures..."));
 
-    // Inkrementuj globalny licznik prób odczytu
-    _totalReadAttempts++;
-
     for (uint8_t i = 0; i < _sensorsCount; i++)
     {
-        // Odczytuj tylko jeśli mamy poprawny adres
+        // 1. Jeśli nie mamy adresu, pomijamy (czeka na _searchForMissingSensors)
         if (!_isValidAddress(_addresses[i]))
         {
-            // Ten czujnik nie został znaleziony podczas begin()
-            DPRINTLN(F("[DS18B20MultiPin] Sensor not found (invalid address)"));
-            continue; // Pomijamy ten pomiar, nie dodajemy do sumy
+            continue;
         }
 
         _dallas->setOneWire(_oneWires[i]);
-        // Pobierz temperaturę używając ADRESU
         float tempC = _dallas->getTempC(_addresses[i]);
 
+        // 2. Obsługa błędów i odłączenia (Hot-Swap)
         if (tempC == DEVICE_DISCONNECTED_C)
         {
-            // Czujnik rozłączony - wyzeruj adres i pomiń pomiar
-            for (uint8_t j = 0; j < 8; j++) _addresses[i][j] = 0;
-            DPRINTLN(F("[DS18B20MultiPin] Sensor disconnected"));
-            continue; // Pomijamy ten pomiar, nie dodajemy do sumy
+            _consecutiveErrors[i]++;
+            DPRINT(F("[DS18B20MultiPin] Read Error pin "));
+            DPRINT(i);
+            DPRINT(F(" Count: "));
+            DPRINTLN(_consecutiveErrors[i]);
+
+            if (_consecutiveErrors[i] >= MAX_ERRORS)
+            {
+                DPRINTLN(F(" -> SENSOR DISCONNECTED (Marked invalid)"));
+                // Zerujemy adres -> w kolejnym Idle uruchomi się _searchForMissingSensors
+                memset(_addresses[i], 0, 8);
+                _tempSum[i] = -100.0f; // Reset stanu filtra
+                _lastTemperatures[i] = -127.0f; // Sygnał błędu dla usera
+                _consecutiveErrors[i] = 0;
+            }
+            continue; // Pomiń obliczenia średniej
+        }
+
+        // 3. Odrzucenie grubych błędów (zakłócenia fizycznie niemożliwe)
+        // Margines bezpieczeństwa: -15 do 45
+        if (tempC < -15.0f || tempC > 45.0f)
+        {
+            DPRINTLN(F("[DS18B20MultiPin] Ignored outlier value."));
+            continue;
+        }
+
+        // Odczyt poprawny -> zerujemy licznik błędów
+        _consecutiveErrors[i] = 0;
+
+        // Zaokrąglenie do 2 miejsc po przecinku
+        long tX100 = static_cast<long>(tempC * 100.0f + 0.5f);
+        float roundedTemp = static_cast<float>(tX100) / 100.0f;
+
+        // 4. Druga weryfikacja (logika aplikacji: -10 do 35)
+        if (roundedTemp < -10.0f || roundedTemp > 35.0f)
+        {
+            continue;
+        }
+
+        // 5. Obliczanie średniej (Moving Average)
+        if (_tempSum[i] <= -99.0f)
+        {
+            // FAST START: Pierwszy pomiar ustawia całą średnią
+            _tempSum[i] = roundedTemp * static_cast<float>(WINDOW_SIZE);
+            _lastTemperatures[i] = roundedTemp;
+            DPRINT(F("[DS18B20MultiPin] Initialized pin "));
+            DPRINT(i);
+            DPRINT(F(" with "));
+            DPRINTLN(roundedTemp);
         }
         else
         {
-            // Pomiar udany - dodaj do sumy i inkrementuj licznik
-            long tX100 = (long)(tempC * 100.0f + 0.5f);
-            float roundedTemp = (float)tX100 / 100.0f;
+            // Standardowa praca: Odejmij starą średnią, dodaj nowy pomiar
+            _tempSum[i] = _tempSum[i] - _lastTemperatures[i] + roundedTemp;
+            _lastTemperatures[i] = _tempSum[i] / static_cast<float>(WINDOW_SIZE);
 
-            if (roundedTemp < -10.0f || roundedTemp > 42.0f)
-            {
-                // Odczyt mało prawdopodobny, pomiń
-                continue;
-            }
-            _tempSum[i] += roundedTemp; // Dodaj do sumy
-            _readsCount[i]++; // Inkrementuj licznik udanych odczytów
-
-            DPRINT(F("[DS18B20MultiPin] Read success: "));
-            DPRINT(roundedTemp);
-            DPRINT(F("°C (reads in cycle: "));
-            DPRINT(_readsCount[i]);
-            DPRINTLN(F(")"));
+            DPRINT(F("[DS18B20MultiPin] Updated pin "));
+            DPRINT(i);
+            DPRINT(F(" avg: "));
+            DPRINTLN(_lastTemperatures[i]);
         }
-    }
-
-    // Jeżeli osiągnięto 50 prób, oblicz średnie i resetuj liczniki
-    if (_totalReadAttempts >= MAX_READINGS)
-    {
-        DPRINTLN(F("[DS18B20MultiPin] *** Completing 50-read cycle, updating averages ***"));
-
-        for (uint8_t i = 0; i < _sensorsCount; i++)
-        {
-            if (_readsCount[i] > 0)
-            {
-                // Oblicz średnią i zapisz jako wartość zwracaną
-                _lastTemperatures[i] = _tempSum[i] / _readsCount[i];
-
-                DPRINT(F("[DS18B20MultiPin] Sensor "));
-                DPRINT(i);
-                DPRINT(F(": Average = "));
-                DPRINT(_lastTemperatures[i]);
-                DPRINT(F("°C (from "));
-                DPRINT(_readsCount[i]);
-                DPRINTLN(F(" valid reads)"));
-            }
-            else
-            {
-                // Brak udanych odczytów w cyklu - ustaw -127
-                _lastTemperatures[i] = -127.0f;
-
-                DPRINT(F("[DS18B20MultiPin] Sensor "));
-                DPRINT(i);
-                DPRINTLN(F(": No valid reads, returning -127"));
-            }
-
-            // Resetuj liczniki dla następnego cyklu
-            _tempSum[i] = 0.0f;
-            _readsCount[i] = 0;
-        }
-
-        // Resetuj globalny licznik prób
-        _totalReadAttempts = 0;
     }
 }

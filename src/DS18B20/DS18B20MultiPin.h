@@ -1,7 +1,3 @@
-//
-// Created by AI Assistant
-//
-
 #ifndef AHA_DEVICES_DS18B20MULTIPIN_H
 #define AHA_DEVICES_DS18B20MULTIPIN_H
 
@@ -11,15 +7,7 @@
 
 /**
  * @class DS18B20MultiPin
- * @brief Non-blocking manager for multiple DS18B20 sensors, each on a separate OneWire pin.
- *
- * This class manages multiple DS18B20 temperature sensors where each sensor is connected
- * to its own dedicated pin (one sensor per pin).
- *
- * Wersja ultra-oszczędna pamięciowo:
- * - Używa tablicy obiektów OneWire (1 na pin)
- * - Używa JEDNEGO obiektu DallasTemperature do komunikacji
- * - Przechowuje adresy czujników w wewnętrznej tablicy
+ * @brief Nieblokujący menedżer wielu czujników DS18B20, każdy na osobnym pinie.
  */
 class DS18B20MultiPin
 {
@@ -33,7 +21,7 @@ public:
     uint8_t getSensorCount() const { return _sensorsCount; }
 
 private:
-    // Finite state machine
+    // Maszyna stanów
     enum class State : uint8_t
     {
         Idle,
@@ -42,33 +30,36 @@ private:
         Reading
     };
 
-    // Constants
-    static const uint16_t CONVERSION_TIME_MS = 750; // DS18B20 12-bit
-    static const uint32_t MEASUREMENT_INTERVAL_MS = 5000; // 5 sekund
-    static const uint8_t MAX_READINGS = 50; // Maksymalna liczba pomiarów do uśrednienia
+    // Stałe konfiguracyjne
+    static const uint16_t CONVERSION_TIME_MS = 750;     // Czas dla 12-bit
+    static const uint32_t MEASUREMENT_INTERVAL_MS = 5000; // Co 5 sekund
+    static const uint8_t WINDOW_SIZE = 30;              // Rozmiar okna średniej
+    static const uint8_t MAX_ERRORS = 10;                // Ile błędów przed uznaniem za disconnected
 
     const uint8_t* _pins;
     uint8_t _sensorsCount;
 
-    OneWire** _oneWires; // Tablica wskaźników do OneWire (1 na pin)
-    DallasTemperature* _dallas; // Wskaźnik do JEDNEGO obiektu Dallas (oszczędność RAM)
-    float* _lastTemperatures; // Ostatnia obliczona średnia temperatura (zwracana przez getTemperature)
-    float* _tempSum; // Suma temperatur z bieżących pomiarów (do obliczenia średniej)
-    uint8_t* _readsCount; // Liczba udanych odczytów per sensor w bieżącym cyklu
-    DeviceAddress* _addresses;
+    // Zarządzanie pamięcią i sprzętem
+    OneWire** _oneWires;         // Tablica wskaźników do OneWire (1 na pin)
+    DallasTemperature* _dallas;  // Współdzielony obiekt Dallas (oszczędność RAM)
+    
+    // Dane pomiarowe
+    float* _lastTemperatures;    // Wynik końcowy (średnia)
+    float* _tempSum;             // Suma do obliczania średniej
+    uint8_t* _consecutiveErrors; // Licznik błędów z rzędu (do Hot-Swap)
+    DeviceAddress* _addresses;   // Adresy czujników
 
     State _state;
     bool _beginCalled;
 
     uint32_t _lastRequestTime;
     uint32_t _lastMeasurementTime;
-    uint8_t _totalReadAttempts; // Globalna liczba prób odczytu (0-10)
 
     void _requestAll();
     void _readAll();
     void _searchForMissingSensors();
 
-    // Funkcja pomocnicza do sprawdzania, czy adres jest poprawny (nie same zera)
+    // Sprawdza czy adres jest prawidłowy (DS18B20 zaczyna się od 0x28)
     bool _isValidAddress(const DeviceAddress& address);
 };
 
