@@ -64,7 +64,8 @@ public:
         uint8_t eepromSlotsTilt = 0,
         // --- Optional HA Configuration ---
         const char* deviceClass = nullptr,
-        const char* icon = nullptr
+        const char* icon = nullptr,
+        bool invertState = false
     );
 
     // Destructor to free dynamically allocated memory
@@ -109,6 +110,7 @@ private:
     MotorDirection _motorState = DirectionNone;
     bool _tiltEnabled;
     bool _isLocked = false;
+    bool _invertState = false;
 
     // Buffers for heap-allocated name/icon strings
     char* _haNameBuffer;

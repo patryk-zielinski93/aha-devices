@@ -52,7 +52,8 @@ Cover::Cover(
     uint8_t eepromSlotsTilt,
     // --- Optional HA Configuration ---
     const char* deviceClass,
-    const char* icon
+    const char* icon,
+    bool invertState
 ) : _haCover(haCover),
     _motorDownPin(motorDownPin),
     _motorUpPin(motorUpPin),
@@ -64,6 +65,7 @@ Cover::Cover(
     _eepromSlotsTilt(eepromSlotsTilt),
     _haNameBuffer(nullptr),
     _haIconBuffer(nullptr),
+    _invertState(invertState),
     _nextInstance(nullptr)
 {
     _initialize(name, icon, deviceClass);
@@ -731,12 +733,18 @@ void Cover::_updateHAState() const
         )
         {
             DPRINTLN(F("[Cover] #_updateHAState() -> currentState: StateClosed"));
-            _haCover->setState(HACover::CoverState::StateClosed, true);
+            _haCover->setState(
+                _invertState ? HACover::CoverState::StateOpen : HACover::CoverState::StateClosed,
+                true
+            );
         }
         else
         {
             DPRINTLN(F("[Cover] #_updateHAState() -> currentState: StateOpen"));
-            _haCover->setState(HACover::CoverState::StateOpen, true);
+            _haCover->setState(
+                _invertState ? HACover::CoverState::StateClosed : HACover::CoverState::StateOpen,
+                true
+            );
         }
     }
 }
